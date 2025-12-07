@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COVID-19 Data Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card h3 {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .controls {
+            padding: 30px;
+            background: white;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: 600;
+        }
+
+        input, select, button {
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .fetch-btn {
+            background: #28a745;
+            padding: 12px 30px;
+            font-size: 1.1em;
+        }
+
+        .fetch-btn:hover {
+            background: #218838;
+        }
+
+        .table-container {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th:hover {
+            background: #5568d3;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 20px;
+        }
+
+        .pagination button {
+            padding: 8px 15px;
+        }
+
+        .page-info {
+            color: #666;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            margin: 20px 30px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            margin: 20px 30px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+        }
+
+        .chart-container {
+            padding: 30px;
+            background: white;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+            margin-top: 20px;
+        }
+
+        .number-positive {
+            color: #28a745;
+        }
+
+        .number-negative {
+            color: #dc3545;
+        }
+
+        @media (max-width: 768px) {
+            .controls-row {
+                flex-direction: column;
+            }
+
+            .control-group {
+                width: 100%;
+            }
+
+            table {
+                font-size: 0.9em;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🦠 COVID-19 Data Dashboard</h1>
+            <p>Real-time COVID-19 Statistics from RapidAPI</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Records</h3>
+                <div class="value" id="totalRecords">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Cases</h3>
+                <div class="value" id="totalCases">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Deaths</h3>
+                <div class="value" id="totalDeaths">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Recovered</h3>
+                <div class="value" id="totalRecovered">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Active Cases</h3>
+                <div class="value" id="activeCases">0</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="controls-row">
+                <button class="fetch-btn" onclick="fetchData()">📥 Fetch Fresh Data from API</button>
+            </div>
+            
+            <div class="controls-row">
+                <div class="control-group">
+                    <label>Search Country</label>
+                    <input type="text" id="countryFilter" placeholder="Enter country name..." onkeyup="applyFilters()">
+                </div>
+                
+                <div class="control-group">
+                    <label>Continent</label>
+                    <select id="continentFilter" onchange="applyFilters()">
+                        <option value="all">All Continents</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Sort By</label>
+                    <select id="sortBy" onchange="applyFilters()">
+                        <option value="total_cases">Total Cases</option>
+                        <option value="total_deaths">Total Deaths</option>
+                        <option value="total_recovered">Total Recovered</option>
+                        <option value="active_cases">Active Cases</option>
+                        <option value="country">Country Name</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Order</label>
+                    <select id="sortOrder" onchange="applyFilters()">
+                        <option value="desc">Descending</option>
+                        <option value="asc">Ascending</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Per Page</label>
+                    <select id="perPage" onchange="applyFilters()">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="messageArea"></div>
+
+        <div class="table-container">
+            <div id="loadingArea" class="loading" style="display: none;">
+                Loading data...
+            </div>
+            
+            <table id="dataTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Country</th>
+                        <th>Continent</th>
+                        <th>Total Cases</th>
+                        <th>New Cases</th>
+                        <th>Total Deaths</th>
+                        <th>Active Cases</th>
+                        <th>Recovered</th>
+                        <th>Critical</th>
+                        <th>Cases/1M</th>
+                        <th>Tests</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <button onclick="changePage(-1)" id="prevBtn">← Previous</button>
+            <span class="page-info" id="pageInfo">Page 1 of 1</span>
+            <button onclick="changePage(1)" id="nextBtn">Next →</button>
+        </div>
+
+        <div class="chart-container">
+            <h2>Top 10 Countries by Total Cases</h2>
+            <div class="chart-wrapper">
+                <canvas id="topCountriesChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container" id="countryDetailChart" style="display: none;">
+            <h2 id="countryChartTitle">Country Statistics</h2>
+            <div class="chart-wrapper">
+                <canvas id="countryStatsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        let chart = null;
+        let countryChart = null;
+        let lastSearchedCountry = '';
+
+        // Initialize on page load
+        window.onload = function() {
+            loadStatistics();
+            loadContinents();
+            loadRecords();
+            loadTopCountries();
+        };
+
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        function showMessage(message, type) {
+            const messageArea = document.getElementById('messageArea');
+            messageArea.innerHTML = `<div class="${type}">${message}</div>`;
+            setTimeout(() => {
+                messageArea.innerHTML = '';
+            }, 5000);
+        }
+
+        async function fetchData() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Fetching data...';
+            
+            try {
+                const response = await fetch('/api/fetch-data');
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    loadStatistics();
+                    loadRecords();
+                    loadTopCountries();
+                } else {
+                    showMessage('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error fetching data: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📥 Fetch Fresh Data from API';
+            }
+        }
+
+        async function loadStatistics() {
+            try {
+                const response = await fetch('/api/statistics');
+                const data = await response.json();
+                
+                document.getElementById('totalRecords').textContent = formatNumber(data.total_records);
+                document.getElementById('totalCases').textContent = formatNumber(data.total_cases);
+                document.getElementById('totalDeaths').textContent = formatNumber(data.total_deaths);
+                document.getElementById('totalRecovered').textContent = formatNumber(data.total_recovered);
+                document.getElementById('activeCases').textContent = formatNumber(data.active_cases);
+            } catch (error) {
+                console.error('Error loading statistics:', error);
+            }
+        }
+
+        async function loadContinents() {
+            try {
+                const response = await fetch('/api/continents');
+                const data = await response.json();
+                
+                const select = document.getElementById('continentFilter');
+                data.continents.forEach(continent => {
+                    const option = document.createElement('option');
+                    option.value = continent;
+                    option.textContent = continent;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading continents:', error);
+            }
+        }
+
+        async function loadRecords() {
+            const loading = document.getElementById('loadingArea');
+            const table = document.getElementById('dataTable');
+            
+            loading.style.display = 'block';
+            table.style.display = 'none';
+            
+            const country = document.getElementById('countryFilter').value;
+            const continent = document.getElementById('continentFilter').value;
+            const sortBy = document.getElementById('sortBy').value;
+            const order = document.getElementById('sortOrder').value;
+            const perPage = document.getElementById('perPage').value;
+            
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: perPage,
+                country: country,
+                continent: continent,
+                sort_by: sortBy,
+                order: order
+            });
+            
+            try {
+                const response = await fetch('/api/records?' + params);
+                const data = await response.json();
+                
+                totalPages = data.pages;
+                updatePagination();
+                
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = '';
+                
+                data.records.forEach(record => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td><strong>${record.country}</strong></td>
+                        <td>${record.continent}</td>
+                        <td>${formatNumber(record.total_cases)}</td>
+                        <td class="${record.new_cases > 0 ? 'number-positive' : ''}">${formatNumber(record.new_cases)}</td>
+                        <td>${formatNumber(record.total_deaths)}</td>
+                        <td>${formatNumber(record.active_cases)}</td>
+                        <td>${formatNumber(record.total_recovered)}</td>
+                        <td>${formatNumber(record.critical_cases)}</td>
+                        <td>${formatNumber(Math.round(record.cases_per_million))}</td>
+                        <td>${formatNumber(record.total_tests)}</td>
+                    `;
+                });
+                
+                table.style.display = 'table';
+                
+                // Show country chart if specific country is searched
+                if (country && country.length > 2 && data.records.length > 0) {
+                    lastSearchedCountry = country;
+                    loadCountryChart(data.records);
+                } else {
+                    // Hide country chart when no specific country is searched
+                    document.getElementById('countryDetailChart').style.display = 'none';
+                }
+                
+            } catch (error) {
+                showMessage('Error loading records: ' + error.message, 'error');
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        async function loadTopCountries() {
+            try {
+                const response = await fetch('/api/top-countries?metric=total_cases&limit=10');
+                const data = await response.json();
+                
+                const countries = data.countries.map(c => c.country);
+                const cases = data.countries.map(c => c.total_cases);
+                
+                const ctx = document.getElementById('topCountriesChart').getContext('2d');
+                
+                if (chart) {
+                    chart.destroy();
+                }
+                
+                chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: countries,
+                        datasets: [{
+                            label: 'Total Cases',
+                            data: cases,
+                            backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                            borderColor: 'rgba(102, 126, 234, 1)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return formatNumber(value);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading top countries:', error);
+            }
+        }
+
+        function loadCountryChart(records) {
+            // Only show chart if we have country records
+            if (!records || records.length === 0) {
+                document.getElementById('countryDetailChart').style.display = 'none';
+                return;
+            }
+
+            // Show the chart container
+            document.getElementById('countryDetailChart').style.display = 'block';
+            
+            // Get the first record (or aggregate if multiple)
+            const record = records[0];
+            
+            // Update chart title
+            document.getElementById('countryChartTitle').textContent = 
+                `${record.country} - COVID-19 Statistics Breakdown`;
+            
+            // Prepare data for the chart
+            const labels = [
+                'Total Cases',
+                'Active Cases',
+                'Total Recovered',
+                'Total Deaths',
+                'Critical Cases',
+                'New Cases'
+            ];
+            
+            const data = [
+                record.total_cases,
+                record.active_cases,
+                record.total_recovered,
+                record.total_deaths,
+                record.critical_cases,
+                record.new_cases
+            ];
+            
+            const colors = [
+                'rgba(255, 193, 7, 0.8)',   // Total Cases - Yellow
+                'rgba(255, 152, 0, 0.8)',   // Active Cases - Orange
+                'rgba(76, 175, 80, 0.8)',   // Recovered - Green
+                'rgba(244, 67, 54, 0.8)',   // Deaths - Red
+                'rgba(156, 39, 176, 0.8)',  // Critical - Purple
+                'rgba(33, 150, 243, 0.8)'   // New Cases - Blue
+            ];
+            
+            const ctx = document.getElementById('countryStatsChart').getContext('2d');
+            
+            if (countryChart) {
+                countryChart.destroy();
+            }
+            
+            countryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Cases',
+                        data: data,
+                        backgroundColor: colors,
+                        borderColor: colors.map(c => c.replace('0.8', '1')),
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                padding: 15,
+                                font: {
+                                    size: 12
+                                },
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    return data.labels.map((label, i) => {
+                                        const value = data.datasets[0].data[i];
+                                        return {
+                                            text: `${label}: ${formatNumber(value)}`,
+                                            fillStyle: data.datasets[0].backgroundColor[i],
+                                            hidden: false,
+                                            index: i
+                                        };
+                                    });
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${formatNumber(value)} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Scroll to the chart smoothly
+            setTimeout(() => {
+                document.getElementById('countryDetailChart').scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'nearest' 
+                });
+            }, 300);
+        }
+
+        function applyFilters() {
+            currentPage = 1;
+            loadRecords();
+        }
+
+        function changePage(delta) {
+            const newPage = currentPage + delta;
+            if (newPage >= 1 && newPage <= totalPages) {
+                currentPage = newPage;
+                loadRecords();
+            }
+        }
+
+        function updatePagination() {
+            document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+        }
+    </script>
+</body>
+</html>
